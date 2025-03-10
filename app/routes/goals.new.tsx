@@ -16,13 +16,18 @@ const goalSchema = z.object({
   type: z.enum(["weight_loss", "cardio_health", "marathon", "sprint", "custom"], {
     errorMap: () => ({ message: "目標タイプを選択してください" })
   }),
-  customDescription: z.string()
-    .min(5, { message: "目標の詳細は5文字以上で入力してください" })
-    .optional()
-    .refine((val) => {
-      if (val === "" || val === undefined) return true;
-      return val.length >= 5;
-    }, { message: "目標の詳細は5文字以上で入力してください" }),
+  customDescription: z.union([
+    z.string().min(5, { message: "目標の詳細は5文字以上で入力してください" }),
+    z.string().length(0).optional(),
+  ]).superRefine((val, ctx) => {
+    // typeがcustomの場合のみカスタム説明文を必須とする
+    if (ctx.parent.type === "custom" && (!val || val.trim() === "")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "カスタム目標の詳細は必須です",
+      });
+    }
+  }),
   startDate: z.string({
     required_error: "開始日は必須です"
   }),
@@ -58,6 +63,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       customDescription: true,
       startDate: true,
       targetDate: true,
+      createdAt: true,
     }
   });
 
@@ -70,7 +76,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
 
   const type = formData.get("type")?.toString() || "";
-  const customDescription = formData.get("customDescription")?.toString() || undefined;
+  const customDescription = formData.get("customDescription")?.toString() || "";
   const startDate = formData.get("startDate")?.toString() || "";
   const targetDate = formData.get("targetDate")?.toString() || undefined;
 
@@ -78,26 +84,19 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     const validatedData = goalSchema.parse({
       type,
-      customDescription: type === "custom" ? customDescription : undefined,
+      customDescription,
       startDate,
       targetDate,
     });
-
-    // カスタム目標の場合は詳細が必須
-    if (type === "custom" && (!customDescription || customDescription.trim() === "")) {
-      return json({ 
-        errors: { customDescription: "カスタム目標の詳細は必須です" } 
-      });
-    }
 
     // トレーニング目標の作成
     await prisma.trainingGoal.create({
       data: {
         userId,
-        type,
-        customDescription,
-        startDate: new Date(startDate),
-        targetDate: targetDate ? new Date(targetDate) : undefined,
+        type: validatedData.type,
+        customDescription: validatedData.type === "custom" ? validatedData.customDescription : undefined,
+        startDate: new Date(validatedData.startDate),
+        targetDate: validatedData.targetDate ? new Date(validatedData.targetDate) : undefined,
       },
     });
 
@@ -130,6 +129,18 @@ export default function NewGoal() {
   // 今日の日付を取得してHTML date inputのデフォルト値として使用
   const today = new Date().toISOString().split("T")[0];
 
+  // 目標タイプの表示用テキストを取得する関数
+  const getGoalTypeText = (type: string) => {
+    switch (type) {
+      case "weight_loss": return "ダイエット・脂肪燃焼";
+      case "cardio_health": return "心肺機能向上";
+      case "marathon": return "マラソン・長距離レース対策";
+      case "sprint": return "短距離・スプリント能力向上";
+      case "custom": return "カスタム目標";
+      default: return "不明な目標タイプ";
+    }
+  };
+
   return (
     <Layout user={user}>
       <div className="py-6">
@@ -144,19 +155,15 @@ export default function NewGoal() {
                 {existingGoals.slice(0, 1).map((goal) => (
                   <div key={goal.id} className="border-l-4 border-blue-500 pl-4 py-2">
                     <h3 className="font-medium">
-                      {goal.type === "weight_loss" ? "ダイエット・脂肪燃焼" :
-                       goal.type === "cardio_health" ? "心肺機能向上" :
-                       goal.type === "marathon" ? "マラソン・長距離レース対策" :
-                       goal.type === "sprint" ? "短距離・スプリント能力向上" :
-                       "カスタム目標"}
+                      {getGoalTypeText(goal.type)}
                     </h3>
                     
                     {goal.customDescription && (
                       <p className="text-sm mt-1">{goal.customDescription}</p>
                     )}
                     
-                    <div className="flex mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      <span className="mr-4">開始日: {new Date(goal.startDate).toLocaleDateString('ja-JP')}</span>
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      <span>開始日: {new Date(goal.startDate).toLocaleDateString('ja-JP')}</span>
                       {goal.targetDate && (
                         <span>目標日: {new Date(goal.targetDate).toLocaleDateString('ja-JP')}</span>
                       )}
