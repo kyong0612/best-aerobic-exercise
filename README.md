@@ -59,28 +59,27 @@
 
 6. turso
 
-```bash
+   ```bash
 
-brew install tursodatabase/tap/turso
+   brew install tursodatabase/tap/turso
 
-turso auth login
+   turso auth login
 
-turso db create best-aerobic-exercise
+   turso db create best-aerobic-exercise
 
-turso db show best-aerobic-exercise
+   turso db show best-aerobic-exercise
 
-turso db tokens create best-aerobic-exercise
+   turso db tokens create best-aerobic-exercise
 
-```
+   ```
 
-7. update .env
+7. 環境変数の更新
 
-```bash
-# example
-TURSO_AUTH_TOKEN="eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..."
-TURSO_DATABASE_URL="libsql://best-aerobic-exercise.turso.io"
-```
-
+   ```bash
+   # example
+   TURSO_AUTH_TOKEN="eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..."
+   TURSO_DATABASE_URL="libsql://best-aerobic-exercise.turso.io"
+   ```
 
 ## 開発
 
