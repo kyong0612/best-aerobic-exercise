@@ -1,0 +1,136 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ユーザーモデル
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  age           Int
+  gender        String
+  height        Float // cm
+  weight        Float // kg
+  maxHeartRate  Int // 最大心拍数（自動計算またはカスタム）
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // 関連
+  trainingGoals TrainingGoal[]
+  heartRateZones HeartRateZones?
+  trainingPlans TrainingPlan[]
+  workoutLogs   WorkoutLog[]
+}
+
+// トレーニング目標モデル
+model TrainingGoal {
+  id               String         @id @default(uuid())
+  userId           String
+  type             String // 'weight_loss', 'cardio_health', 'marathon', 'sprint', 'custom'
+  customDescription String?
+  startDate        DateTime
+  targetDate       DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  
+  // 関連
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainingPlans    TrainingPlan[]
+}
+
+// 心拍ゾーンモデル
+model HeartRateZones {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  zone1Min  Int
+  zone1Max  Int
+  zone2Min  Int
+  zone2Max  Int
+  zone3Min  Int
+  zone3Max  Int
+  zone4Min  Int
+  zone4Max  Int
+  zone5Min  Int
+  zone5Max  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 関連
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// トレーニングプランモデル
+model TrainingPlan {
+  id        String           @id @default(uuid())
+  userId    String
+  name      String
+  goalId    String
+  startDate DateTime
+  endDate   DateTime?
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  
+  // 関連
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal      TrainingGoal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  workouts  PlannedWorkout[]
+}
+
+// 計画されたワークアウトモデル
+model PlannedWorkout {
+  id          String        @id @default(uuid())
+  planId      String
+  name        String
+  description String
+  dayOfWeek   Int // 0-6、0は日曜日
+  activityType String // 'run', 'walk', 'cycle', 'swim', 'other'
+  duration    Int // 分
+  zone1Duration Int // 分
+  zone2Duration Int // 分
+  zone3Duration Int // 分
+  zone4Duration Int // 分
+  zone5Duration Int // 分
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // 関連
+  plan        TrainingPlan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  workoutLogs WorkoutLog[]
+}
+
+// ワークアウトログモデル
+model WorkoutLog {
+  id             String         @id @default(uuid())
+  userId         String
+  plannedWorkoutId String?
+  date           DateTime
+  activityType   String // 'run', 'walk', 'cycle', 'swim', 'other'
+  duration       Int // 分
+  distance       Float? // km
+  caloriesBurned Int?
+  avgHeartRate   Int?
+  maxHeartRate   Int?
+  zone1Duration  Int // 分
+  zone2Duration  Int // 分
+  zone3Duration  Int // 分
+  zone4Duration  Int // 分
+  zone5Duration  Int // 分
+  notes          String?
+  feelingRating  Int? // 1-5の5段階評価
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  // 関連
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plannedWorkout PlannedWorkout? @relation(fields: [plannedWorkoutId], references: [id])
+}
