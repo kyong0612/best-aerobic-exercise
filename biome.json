@@ -1,17 +1,22 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.2.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "organizeImports": {
     "enabled": true
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "correctness": {
+        "useHookAtTopLevel": "error",
+        "noVoidElementsWithChildren": "error"
+      },
+      "suspicious": {
+        "noMisrefactoredShorthandAssign": "error" 
+      },
+      "a11y": {
+        "recommended": true
+      }
     }
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2
   }
 }

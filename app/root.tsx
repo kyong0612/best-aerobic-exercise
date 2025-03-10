@@ -50,12 +50,8 @@ export const loader = async () => {
   });
 };
 
-export function Layout({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
-  // 環境変数が必要になったときに使用するためloadしておく
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _data = useLoaderData<typeof loader>();
-
+// 基本のHTML構造を提供するコンポーネント - フックを使わない
+function Document({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja" className="h-full">
       <head>
@@ -65,31 +61,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body className="h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-        <QueryClientProvider client={queryClient}>
-          {children}
-          {process.env.NODE_ENV === "development" && <ReactQueryDevtools />}
-          <ScrollRestoration />
-          <Scripts />
-        </QueryClientProvider>
+        {children}
+        <ScrollRestoration />
+        <Scripts />
       </body>
     </html>
   );
 }
 
+// アプリのメインコンポーネント - フックを使用
 export default function App() {
-  return <Outlet />;
+  const data = useLoaderData<typeof loader>();
+  const [queryClient] = useState(() => new QueryClient());
+
+  return (
+    <Document>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        {process.env.NODE_ENV === "development" && <ReactQueryDevtools />}
+      </QueryClientProvider>
+    </Document>
+  );
 }
 
-// エラー境界コンポーネント
+// エラー境界コンポーネント - フックを使わない
 export function ErrorBoundary() {
   return (
-    <html lang="ja" className="h-full">
-      <head>
-        <title>エラーが発生しました</title>
-        <Meta />
-        <Links />
-      </head>
-      <body className="h-full flex items-center justify-center bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <Document>
+      <div className="h-full flex items-center justify-center">
         <div className="text-center p-6">
           <h1 className="text-2xl font-bold mb-4">エラーが発生しました</h1>
           <p className="mb-4">アプリケーションでエラーが発生しました。</p>
@@ -97,8 +96,7 @@ export function ErrorBoundary() {
             ホームに戻る
           </a>
         </div>
-        <Scripts />
-      </body>
-    </html>
+      </div>
+    </Document>
   );
 }
