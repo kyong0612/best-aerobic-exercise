@@ -1,19 +1,29 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
+import path from 'node:path';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var cachedPrisma: PrismaClient;
+}
+
+// Workaround to find the db file in production
+const filePath = path.join(process.cwd(), 'prisma/dev.db');
+const config = {
+  datasources: {
+    db: {
+      url: `file:${filePath}`,
+    },
+  },
+};
 
 let prisma: PrismaClient;
-
-// この処理はHotReloadなどの開発環境でPrismaClientのインスタンスが
-// 複数作成されることを防ぐためのもの
-if (process.env.NODE_ENV === "production") {
-  prisma = new PrismaClient();
+if (process.env.NODE_ENV === 'production') {
+  prisma = new PrismaClient(config);
 } else {
-  // @ts-ignore
-  if (!global.__db) {
-    // @ts-ignore
-    global.__db = new PrismaClient();
+  if (!global.cachedPrisma) {
+    global.cachedPrisma = new PrismaClient(config);
   }
-  // @ts-ignore
-  prisma = global.__db;
+  prisma = global.cachedPrisma;
 }
 
 export { prisma };
