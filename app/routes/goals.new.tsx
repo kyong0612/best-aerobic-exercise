@@ -16,7 +16,18 @@ const goalSchema = z.object({
   type: z.enum(["weight_loss", "cardio_health", "marathon", "sprint", "custom"], {
     errorMap: () => ({ message: "目標タイプを選択してください" })
   }),
-  customDescription: z.string().optional(),
+  customDescription: z.union([
+    z.string().min(5, { message: "目標の詳細は5文字以上で入力してください" }),
+    z.string().length(0).optional(),
+  ]).superRefine((val, ctx) => {
+    // typeがcustomの場合のみカスタム説明文を必須とする
+    if (ctx.parent.type === "custom" && (!val || val.trim() === "")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "カスタム目標の詳細は必須です",
+      });
+    }
+  }),
   startDate: z.string({
     required_error: "開始日は必須です"
   }),
@@ -42,7 +53,21 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw new Response("ユーザーが見つかりません", { status: 404 });
   }
 
-  return json({ user });
+  // 既存の目標を取得
+  const existingGoals = await prisma.trainingGoal.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      type: true,
+      customDescription: true,
+      startDate: true,
+      targetDate: true,
+      createdAt: true,
+    }
+  });
+
+  return json({ user, existingGoals });
 };
 
 // アクション
@@ -51,18 +76,33 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
 
   const type = formData.get("type")?.toString() || "";
-  const customDescription = formData.get("customDescription")?.toString() || undefined;
+  const customDescription = formData.get("customDescription")?.toString() || "";
   const startDate = formData.get("startDate")?.toString() || "";
   const targetDate = formData.get("targetDate")?.toString() || undefined;
 
   // バリデーション
   try {
-    goalSchema.parse({
+    const validatedData = goalSchema.parse({
       type,
       customDescription,
       startDate,
       targetDate,
     });
+
+    // トレーニング目標の作成
+    await prisma.trainingGoal.create({
+      data: {
+        userId,
+        type: validatedData.type,
+        customDescription: validatedData.type === "custom" ? validatedData.customDescription : undefined,
+        startDate: new Date(validatedData.startDate),
+        targetDate: validatedData.targetDate ? new Date(validatedData.targetDate) : undefined,
+      },
+    });
+
+    // ダッシュボードにリダイレクト
+    return redirect("/dashboard");
+    
   } catch (error) {
     if (error instanceof z.ZodError) {
       const fieldErrors = error.errors.reduce((acc, curr) => {
@@ -75,25 +115,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     return json({ errors: { general: "入力内容を確認してください" } });
   }
-
-  // トレーニング目標の作成
-  await prisma.trainingGoal.create({
-    data: {
-      userId,
-      type,
-      customDescription,
-      startDate: new Date(startDate),
-      targetDate: targetDate ? new Date(targetDate) : undefined,
-    },
-  });
-
-  // ダッシュボードにリダイレクト
-  return redirect("/dashboard");
 };
 
 // コンポーネント
 export default function NewGoal() {
-  const { user } = useLoaderData<typeof loader>();
+  const { user, existingGoals } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -103,104 +129,155 @@ export default function NewGoal() {
   // 今日の日付を取得してHTML date inputのデフォルト値として使用
   const today = new Date().toISOString().split("T")[0];
 
+  // 目標タイプの表示用テキストを取得する関数
+  const getGoalTypeText = (type: string) => {
+    switch (type) {
+      case "weight_loss": return "ダイエット・脂肪燃焼";
+      case "cardio_health": return "心肺機能向上";
+      case "marathon": return "マラソン・長距離レース対策";
+      case "sprint": return "短距離・スプリント能力向上";
+      case "custom": return "カスタム目標";
+      default: return "不明な目標タイプ";
+    }
+  };
+
   return (
     <Layout user={user}>
       <div className="py-6">
         <h1 className="text-2xl font-bold mb-6">トレーニング目標の設定</h1>
         
-        <Card className="max-w-2xl mx-auto p-6">
-          <RemixForm method="post">
-            <Form className="space-y-6">
-              {/* 目標タイプ選択 */}
-              <FormField error={actionData?.errors?.type}>
-                <Label htmlFor="type" required>目標タイプ</Label>
-                <Select 
-                  id="type" 
-                  name="type" 
-                  value={goalType}
-                  onChange={(e) => setGoalType(e.target.value)}
-                  error={!!actionData?.errors?.type}
-                >
-                  <option value="weight_loss">ダイエット・脂肪燃焼</option>
-                  <option value="cardio_health">心肺機能向上</option>
-                  <option value="marathon">マラソン・長距離レース対策</option>
-                  <option value="sprint">短距離・スプリント能力向上</option>
-                  <option value="custom">カスタム目標</option>
-                </Select>
-              </FormField>
-              
-              {/* カスタム目標の説明（カスタム選択時のみ表示） */}
-              {goalType === "custom" && (
-                <FormField error={actionData?.errors?.customDescription}>
-                  <Label htmlFor="customDescription" required>カスタム目標の詳細</Label>
-                  <Textarea
-                    id="customDescription"
-                    name="customDescription"
-                    rows={3}
-                    placeholder="あなたのトレーニング目標を詳しく入力してください"
-                    error={!!actionData?.errors?.customDescription}
+        <div className="max-w-2xl mx-auto">
+          {/* 既存の目標があれば表示 */}
+          {existingGoals.length > 0 && (
+            <Card className="mb-6 p-6">
+              <h2 className="text-lg font-semibold mb-4">現在の目標</h2>
+              <div className="space-y-4">
+                {existingGoals.slice(0, 1).map((goal) => (
+                  <div key={goal.id} className="border-l-4 border-blue-500 pl-4 py-2">
+                    <h3 className="font-medium">
+                      {getGoalTypeText(goal.type)}
+                    </h3>
+                    
+                    {goal.customDescription && (
+                      <p className="text-sm mt-1">{goal.customDescription}</p>
+                    )}
+                    
+                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      <span>開始日: {new Date(goal.startDate).toLocaleDateString('ja-JP')}</span>
+                      {goal.targetDate && (
+                        <span>目標日: {new Date(goal.targetDate).toLocaleDateString('ja-JP')}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-500 mt-4">
+                新しい目標を設定すると、最新の目標が優先されます
+              </p>
+            </Card>
+          )}
+          
+          <Card className="p-6">
+            <RemixForm method="post">
+              <Form className="space-y-6">
+                {/* 目標タイプ選択 */}
+                <FormField error={actionData?.errors?.type}>
+                  <Label htmlFor="type" required>目標タイプ</Label>
+                  <Select 
+                    id="type" 
+                    name="type" 
+                    value={goalType}
+                    onChange={(e) => setGoalType(e.target.value)}
+                    error={!!actionData?.errors?.type}
+                  >
+                    <option value="weight_loss">ダイエット・脂肪燃焼</option>
+                    <option value="cardio_health">心肺機能向上</option>
+                    <option value="marathon">マラソン・長距離レース対策</option>
+                    <option value="sprint">短距離・スプリント能力向上</option>
+                    <option value="custom">カスタム目標</option>
+                  </Select>
+                </FormField>
+                
+                {/* カスタム目標の説明（カスタム選択時のみ表示） */}
+                {goalType === "custom" && (
+                  <FormField error={actionData?.errors?.customDescription}>
+                    <Label htmlFor="customDescription" required>カスタム目標の詳細</Label>
+                    <Textarea
+                      id="customDescription"
+                      name="customDescription"
+                      rows={3}
+                      placeholder="あなたのトレーニング目標を詳しく入力してください"
+                      error={!!actionData?.errors?.customDescription}
+                    />
+                  </FormField>
+                )}
+                
+                {/* 開始日 */}
+                <FormField error={actionData?.errors?.startDate}>
+                  <Label htmlFor="startDate" required>開始日</Label>
+                  <Input
+                    id="startDate"
+                    name="startDate"
+                    type="date"
+                    defaultValue={today}
+                    error={!!actionData?.errors?.startDate}
                   />
                 </FormField>
-              )}
-              
-              {/* 開始日 */}
-              <FormField error={actionData?.errors?.startDate}>
-                <Label htmlFor="startDate" required>開始日</Label>
-                <Input
-                  id="startDate"
-                  name="startDate"
-                  type="date"
-                  defaultValue={today}
-                  error={!!actionData?.errors?.startDate}
-                />
-              </FormField>
-              
-              {/* 目標日（任意） */}
-              <FormField error={actionData?.errors?.targetDate}>
-                <Label htmlFor="targetDate">目標達成予定日（任意）</Label>
-                <Input
-                  id="targetDate"
-                  name="targetDate"
-                  type="date"
-                  min={today}
-                  error={!!actionData?.errors?.targetDate}
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  目標達成までの期間を設定すると、進捗管理に役立ちます
-                </p>
-              </FormField>
-              
-              {/* 目標タイプの説明 */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
-                <h3 className="font-medium mb-2">目標タイプについて</h3>
-                <div className="text-sm space-y-2">
-                  {goalType === "weight_loss" && (
-                    <p>ダイエット・脂肪燃焼プログラムは、有酸素運動を多く取り入れて脂肪燃焼を促進します。低〜中強度のゾーン2でのトレーニングが中心となります。</p>
-                  )}
-                  {goalType === "cardio_health" && (
-                    <p>心肺機能向上プログラムは、あなたの心臓と肺の機能を強化します。ゾーン2〜3の持久力向上トレーニングと、定期的なゾーン4のインターバルトレーニングを組み合わせます。</p>
-                  )}
-                  {goalType === "marathon" && (
-                    <p>マラソン・長距離レース対策プログラムは、長時間の持久力を高めます。ロング走を中心にゾーン2での効率的なランニングと、定期的なゾーン3〜4でのペース走を組み合わせます。</p>
-                  )}
-                  {goalType === "sprint" && (
-                    <p>短距離・スプリント能力向上プログラムは、瞬発力とスピードを高めます。高強度のゾーン4〜5でのインターバルトレーニングと、適切な回復期間を設けた構成になります。</p>
-                  )}
-                  {goalType === "custom" && (
-                    <p>あなた独自の目標に合わせたカスタムプログラムを設定します。目標の詳細を入力してください。</p>
-                  )}
+                
+                {/* 目標日（任意） */}
+                <FormField error={actionData?.errors?.targetDate}>
+                  <Label htmlFor="targetDate">目標達成予定日（任意）</Label>
+                  <Input
+                    id="targetDate"
+                    name="targetDate"
+                    type="date"
+                    min={today}
+                    error={!!actionData?.errors?.targetDate}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    目標達成までの期間を設定すると、進捗管理に役立ちます
+                  </p>
+                </FormField>
+                
+                {/* 目標タイプの説明 */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
+                  <h3 className="font-medium mb-2">目標タイプについて</h3>
+                  <div className="text-sm space-y-2">
+                    {goalType === "weight_loss" && (
+                      <p>ダイエット・脂肪燃焼プログラムは、有酸素運動を多く取り入れて脂肪燃焼を促進します。低〜中強度のゾーン2でのトレーニングが中心となります。</p>
+                    )}
+                    {goalType === "cardio_health" && (
+                      <p>心肺機能向上プログラムは、あなたの心臓と肺の機能を強化します。ゾーン2〜3の持久力向上トレーニングと、定期的なゾーン4のインターバルトレーニングを組み合わせます。</p>
+                    )}
+                    {goalType === "marathon" && (
+                      <p>マラソン・長距離レース対策プログラムは、長時間の持久力を高めます。ロング走を中心にゾーン2での効率的なランニングと、定期的なゾーン3〜4でのペース走を組み合わせます。</p>
+                    )}
+                    {goalType === "sprint" && (
+                      <p>短距離・スプリント能力向上プログラムは、瞬発力とスピードを高めます。高強度のゾーン4〜5でのインターバルトレーニングと、適切な回復期間を設けた構成になります。</p>
+                    )}
+                    {goalType === "custom" && (
+                      <p>あなた独自の目標に合わせたカスタムプログラムを設定します。目標の詳細を入力してください。</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-              
-              {/* 送信ボタン */}
-              <div className="flex justify-end pt-4">
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "保存中..." : "目標を保存"}
-                </Button>
-              </div>
-            </Form>
-          </RemixForm>
-        </Card>
+                
+                {/* エラーメッセージ */}
+                {actionData?.errors?.general && (
+                  <div className="text-red-600 dark:text-red-400 text-sm">
+                    {actionData.errors.general}
+                  </div>
+                )}
+                
+                {/* 送信ボタン */}
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "保存中..." : "目標を保存"}
+                  </Button>
+                </div>
+              </Form>
+            </RemixForm>
+          </Card>
+        </div>
       </div>
     </Layout>
   );
