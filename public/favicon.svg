@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" aria-label="ZoneTrainer Logo">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8f9fa" />
+      <stop offset="100%" stop-color="#f1f3f5" />
+    </linearGradient>
+    
+    <!-- Define drop shadow for heart -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+      <feOffset dx="2" dy="2" result="offsetblur" />
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3" />
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    
+    <!-- Glow effect for heart rate line -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="150" cy="150" r="150" fill="url(#bgGradient)" />
+  
+  <!-- Main Heart Rate Zone Group -->
+  <g transform="translate(150, 135)" filter="url(#dropShadow)">
+    <!-- Zone 5 - Highest Intensity -->
+    <path d="M0,0 C-25,-70 -70,-25 0,-100 C70,-25 25,-70 0,0 Z" fill="#e53e3e" />
+    
+    <!-- Zone 4 -->
+    <path d="M0,0 C-20,-60 -60,-20 0,-85 C60,-20 20,-60 0,0 Z" fill="#ed8936" stroke="#FFF" stroke-width="1.5" />
+    
+    <!-- Zone 3 -->
+    <path d="M0,0 C-15,-50 -50,-15 0,-70 C50,-15 15,-50 0,0 Z" fill="#ecc94b" stroke="#FFF" stroke-width="1.5" />
+    
+    <!-- Zone 2 -->
+    <path d="M0,0 C-12,-40 -40,-12 0,-55 C40,-12 12,-40 0,0 Z" fill="#4299e1" stroke="#FFF" stroke-width="1.5" />
+    
+    <!-- Zone 1 - Lowest Intensity -->
+    <path d="M0,0 C-8,-30 -30,-8 0,-40 C30,-8 8,-30 0,0 Z" fill="#3182ce" stroke="#FFF" stroke-width="1.5" />
+  </g>
+  
+  <!-- Heart Beat Line -->
+  <path d="M70,190 L100,190 L120,160 L140,220 L160,175 L180,190 L230,190" 
+        stroke="#2d3748" 
+        stroke-width="6" 
+        fill="none" 
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        filter="url(#glow)" />
+  
+  <!-- 5 Zones Badge -->
+  <g transform="translate(150, 215)">
+    <circle cx="0" cy="0" r="25" fill="#2d3748" />
+    <text x="-12" y="7" font-family="'Montserrat', Arial, sans-serif" font-size="24" font-weight="700" fill="white">
+      5Z
+    </text>
+  </g>
+</svg>

@@ -37,7 +37,7 @@ export const links: LinksFunction = () => [
   },
   {
     rel: "icon",
-    href: "/favicon.ico",
+    href: "/favicon.svg",
     type: "image/x-icon",
   },
 ];

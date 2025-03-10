@@ -32,12 +32,12 @@ const Header = ({ user }: HeaderProps) => {
               <Link to="/" className="flex items-center">
                 <img
                   className="h-8 w-auto hidden dark:block"
-                  src="/logo-dark.png"
+                  src="/logo-dark.svg"
                   alt="5ゾーントレーニング"
                 />
                 <img
                   className="h-8 w-auto dark:hidden"
-                  src="/logo-light.png"
+                  src="/logo-light.svg"
                   alt="5ゾーントレーニング"
                 />
                 <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
