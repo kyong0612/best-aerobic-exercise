@@ -57,6 +57,31 @@
    pnpm dev
    ```
 
+6. turso
+
+```bash
+
+brew install tursodatabase/tap/turso
+
+turso auth login
+
+turso db create best-aerobic-exercise
+
+turso db show best-aerobic-exercise
+
+turso db tokens create best-aerobic-exercise
+
+```
+
+7. update .env
+
+```bash
+# example
+TURSO_AUTH_TOKEN="eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9..."
+TURSO_DATABASE_URL="libsql://best-aerobic-exercise.turso.io"
+```
+
+
 ## 開発
 
 ### コマンド

@@ -4,13 +4,17 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "build": "cp prisma/dev.db tmp/dev.db && prisma generate && prisma db push && remix vite:build",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:prd": "turso db shell best-aerobic-exercise < ./prisma/migrations/20250310093958_init/migration.sql",
+    "build": "prisma generate && remix vite:build",
     "dev": "prisma generate && remix vite:dev",
     "lint": "biome check ./app",
     "start": "NODE_ENV=production remix-serve ./build/server/index.js",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@libsql/client": "0.14.0",
+    "@prisma/adapter-libsql": "6.4.1",
     "@prisma/client": "6.4.1",
     "@remix-run/node": "2.16.0",
     "@remix-run/react": "2.16.0",

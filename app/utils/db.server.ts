@@ -1,6 +1,6 @@
-import { PrismaClient } from "@prisma/client";
-import path from "node:path";
-import fs from "node:fs";
+import { PrismaClient } from '@prisma/client'
+import { PrismaLibSQL } from '@prisma/adapter-libsql'
+import { createClient } from '@libsql/client'
 
 declare global {
   // eslint-disable-next-line no-var
@@ -9,24 +9,13 @@ declare global {
 
 let prisma: PrismaClient;
 if (process.env.NODE_ENV === "production") {
-  // Workaround to find the db file in production
-  const filePath = path.join(process.cwd(), "tmp/dev.db");
-  const dbDir = path.dirname(filePath);
-
-  // Ensure the directory exists
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
-
-  // Fix: Use proper connection URL for read-write access
-  const config = {
-    datasources: {
-      db: {
-        url: `file:${filePath}?connection_limit=1`,
-      },
-    },
-  };
-  prisma = new PrismaClient(config);
+  const libsql = createClient({
+    url: `${process.env.TURSO_DATABASE_URL}`,
+    authToken: `${process.env.TURSO_AUTH_TOKEN}`,
+  })
+  
+  const adapter = new PrismaLibSQL(libsql)
+   prisma = new PrismaClient({ adapter })
 } else {
   if (!global.cachedPrisma) {
     global.cachedPrisma = new PrismaClient();
