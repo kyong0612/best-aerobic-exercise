@@ -27,7 +27,7 @@ importers:
         specifier: 5.67.2
         version: 5.67.2(@tanstack/react-query@5.67.2(react@18.2.0))(react@18.2.0)
       '@vercel/remix':
-        specifier: ^2.15.3
+        specifier: 2.15.3
         version: 2.15.3(@remix-run/dev@2.16.0(@remix-run/react@2.16.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(typescript@5.1.6))(@remix-run/serve@2.16.0(typescript@5.1.6))(@types/node@22.13.10)(jiti@1.21.7)(typescript@5.1.6)(vite@6.0.0(@types/node@22.13.10)(jiti@1.21.7)(yaml@2.7.0))(yaml@2.7.0))(@remix-run/node@2.16.0(typescript@5.1.6))(@remix-run/server-runtime@2.16.0(typescript@5.1.6))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       bcrypt:
         specifier: 5.1.1
